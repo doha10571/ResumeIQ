@@ -4,6 +4,10 @@ An AI-powered job application assistant built with **n8n**, **Google Gemini**, *
 
 Upload a CV and a job description, get a match analysis, receive a tailored ATS-friendly CV as a PDF, then review and send the application email — nothing is sent without your approval.
 
+![ResumeIQ n8n workflow](workflow_CV.png)
+
+Upload a CV and a job description, ...
+
 ## How it works
 
 | Step | Screen | Webhook | What happens |
