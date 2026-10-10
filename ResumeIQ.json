@@ -1,0 +1,1409 @@
+{
+  "name": "ResumeIQ",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "cv-analysis",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "dc96cded-9b49-4ad8-ae26-0c6ad164132e",
+      "name": "CV Analysis Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -816,
+        80
+      ],
+      "webhookId": "78ce6c18-5f90-401f-a116-2dcbbfd3cf46"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Read the fields sent by the API / Backend.\nconst inputData = $input.first().json.body;\n\nconst cvId = inputData.cv_id;\nconst jobId = inputData.job_id;\nconst rawCvText = inputData.cv_text;\nconst jobDescription = inputData.job_description;\n\n// Clean the CV text line by line, using an explicit loop\n// so it is easy to follow and easy to change later.\nconst rawLines = rawCvText.split(\"\\n\");\nconst cleanedLines = [];\n\nfor (let i = 0; i < rawLines.length; i++) {\n  let currentLine = rawLines[i];\n  currentLine = currentLine.trim();\n\n  // Skip empty lines so the text sent to the AI is compact.\n  if (currentLine.length > 0) {\n    cleanedLines.push(currentLine);\n  }\n}\n\nconst cleanedCvText = cleanedLines.join(\"\\n\");\n\nreturn [\n  {\n    json: {\n      cv_id: cvId,\n      job_id: jobId,\n      cv_text: cleanedCvText,\n      job_description: jobDescription\n    }\n  }\n];"
+      },
+      "id": "7ba509fe-c14d-4e54-9984-9f1e76e363c7",
+      "name": "Extract CV",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -512,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "tableId": "cvs",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "=cv_id",
+              "fieldValue": "={{ $json.cv_id }}"
+            },
+            {
+              "fieldId": "=job_id",
+              "fieldValue": "={{ $json.job_id }}"
+            },
+            {
+              "fieldId": "=cv_text",
+              "fieldValue": "={{ $json.cv_text }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -176,
+        80
+      ],
+      "id": "440f6489-ddda-4a52-a7ce-2adf3a04dc4b",
+      "name": "Create a row",
+      "credentials": {
+        "supabaseApi": {
+          "id": "NRttZhGKf61sV03x",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n{\n  \"contents\": [\n    {\n      \"parts\": [\n        {\n          \"text\": \"You are a CV parsing assistant. Read the CV text and return ONLY a valid JSON object with these keys: summary, skills (array of strings), experience (array of objects with title, company, years, description), education (array of objects with degree, school, year). Do not add markdown or explanations. Do not invent information. If information is missing, use an empty string or empty array.\\n\\nCV TEXT:\\n\" + $('Extract CV').first().json.cv_text\n        }\n      ]\n    }\n  ],\n  \"generationConfig\": {\n    \"temperature\": 0,\n    \"responseMimeType\": \"application/json\"\n  }\n}\n}}",
+        "options": {}
+      },
+      "id": "dc25cb85-5103-4848-b4da-89799d15bee6",
+      "name": "Analyze CV",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        0,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1iOKoAc2QOgZopGv",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const aiResponse = $input.first().json;\n\n// Get Gemini response text\nconst rawText = aiResponse.candidates[0].content.parts[0].text;\n\n// Convert JSON string into a real JSON object\nconst cvAnalysis = JSON.parse(rawText);\n\n// Return structured CV analysis\nreturn [\n  {\n    json: {\n      cv_id: $(\"Extract CV\").first().json.cv_id,\n      job_id: $(\"Extract CV\").first().json.job_id,\n      job_description: $(\"Extract CV\").first().json.job_description,\n      cv_analysis: cvAnalysis\n    }\n  }\n];"
+      },
+      "id": "a5a5221c-ce7a-458c-b845-5faa9d218dbd",
+      "name": "Parse CV Analysis",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n{\n  \"contents\": [\n    {\n      \"parts\": [\n        {\n          \"text\": \"You are a job description parsing assistant. Read the job description and return ONLY a valid JSON object with these keys:\\n\\nrequired_skills: array of strings\\nnice_to_have_skills: array of strings\\nmin_years_experience: number\\nresponsibilities: array of strings\\n\\nDo not add markdown or explanations.\\nDo not invent information.\\nIf information is missing, use an empty array or 0.\\n\\nJOB DESCRIPTION:\\n\" + $json.job_description\n        }\n      ]\n    }\n  ],\n  \"generationConfig\": {\n    \"temperature\": 0,\n    \"responseMimeType\": \"application/json\"\n  }\n}\n}}",
+        "options": {}
+      },
+      "id": "67e8d452-dc08-4ef0-a47c-ef66b2794392",
+      "name": "Analyze Job",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        448,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1iOKoAc2QOgZopGv",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get Gemini response\nconst aiResponse = $input.first().json;\n\n// Get the generated JSON text from Gemini\nconst rawText = aiResponse.candidates[0].content.parts[0].text;\n\n// Convert the JSON string into a real JSON object\nconst jobAnalysis = JSON.parse(rawText);\n\n// Return structured job analysis\nreturn [\n  {\n    json: {\n      cv_id: $(\"Parse CV Analysis\").first().json.cv_id,\n      job_id: $(\"Parse CV Analysis\").first().json.job_id,\n      job_description: $(\"Parse CV Analysis\").first().json.job_description,\n\n      cv_analysis: $(\"Parse CV Analysis\").first().json.cv_analysis,\n\n      job_analysis: jobAnalysis\n    }\n  }\n];"
+      },
+      "id": "665d42b6-14bc-4a17-b5c3-206725c2cc00",
+      "name": "Parse Job Analysis",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n{\n  \"contents\": [\n    {\n      \"parts\": [\n        {\n          \"text\": \"You are a professional ATS CV matching system.\\n\\nCompare the candidate CV analysis with the job analysis.\\n\\nImportant rules:\\n- Evaluate semantic meaning, not exact word matching.\\n- Only mark a requirement as matched when there is evidence in the CV.\\n- Do not assume a skill just because it is related to another skill.\\n- Consider skills, experience, education, responsibilities, and years of experience.\\n- Give a match score from 0 to 100.\\n- Provide practical recommendations for improving the CV.\\n- Do not invent experience or qualifications.\\n\\nReturn ONLY valid JSON with exactly these keys:\\n{\\n  \\\"match_score\\\": number,\\n  \\\"matched_skills\\\": [],\\n  \\\"missing_skills\\\": [],\\n  \\\"recommendations\\\": []\\n}\\n\\nCV ANALYSIS:\\n\" + JSON.stringify($json.cv_analysis) + \"\\n\\nJOB ANALYSIS:\\n\" + JSON.stringify($json.job_analysis)\n        }\n      ]\n    }\n  ],\n  \"generationConfig\": {\n    \"temperature\": 0,\n    \"responseMimeType\": \"application/json\"\n  }\n}\n}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        896,
+        0
+      ],
+      "id": "1748a6d5-2e9e-4446-afd1-08aef19c3403",
+      "name": "AI Match",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1iOKoAc2QOgZopGv",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const aiResponse = $input.first().json;\n\nconst rawText = aiResponse.candidates[0].content.parts[0].text;\n\nconst matchResult = JSON.parse(rawText);\n\nconst previousData = $(\"Parse Job Analysis\").first().json;\n\nreturn [\n  {\n    json: {\n      cv_id: previousData.cv_id,\n      job_id: previousData.job_id,\n      cv_analysis: previousData.cv_analysis,\n      job_analysis: previousData.job_analysis,\n      match_result: matchResult\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        0
+      ],
+      "id": "e276fd63-19f4-439a-945f-f36896c57ae5",
+      "name": "Parse Match"
+    },
+    {
+      "parameters": {
+        "tableId": "analyses",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "cv_id",
+              "fieldValue": "={{ $json.cv_id }}"
+            },
+            {
+              "fieldId": "job_id",
+              "fieldValue": "={{ $json.job_id }}"
+            },
+            {
+              "fieldId": "match_score",
+              "fieldValue": "={{ $json.match_result.match_score }}"
+            },
+            {
+              "fieldId": "matched_skills",
+              "fieldValue": "={{ $json.match_result.matched_skills }}"
+            },
+            {
+              "fieldId": "missing_skills",
+              "fieldValue": "={{ $json.match_result.missing_skills }}"
+            },
+            {
+              "fieldId": "recommendations",
+              "fieldValue": "={{ $json.match_result.recommendations }}"
+            },
+            {
+              "fieldId": "analysis_data",
+              "fieldValue": "={{\n{\n  cv_analysis: $json.cv_analysis,\n  job_analysis: $json.job_analysis,\n  match_result: $json.match_result\n}\n}}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1488,
+        0
+      ],
+      "id": "67bd74ed-db01-4120-b777-710243826c0a",
+      "name": "Create a row1",
+      "credentials": {
+        "supabaseApi": {
+          "id": "NRttZhGKf61sV03x",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{\n{\n  \"success\": true,\n  \"cv_id\": $(\"Parse Match\").first().json.cv_id,\n  \"job_id\": $(\"Parse Match\").first().json.job_id,\n  \"match_result\": $(\"Parse Match\").first().json.match_result\n}\n}}",
+        "options": {}
+      },
+      "id": "cbdef7bc-e765-4793-8d24-b1aeb1b08c8d",
+      "name": "Respond With Analysis",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1984,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "cv-tailoring",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -432,
+        592
+      ],
+      "id": "cf2038d9-8856-4ae8-b40d-ddd6cc4fc9b6",
+      "name": "CV Tailoring Webhook",
+      "webhookId": "6ac7a0cb-ec57-4eb9-82d1-ab906dea3c0b"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "cvs",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "cv_id",
+              "keyValue": "={{ $json.body.cv_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -224,
+        592
+      ],
+      "id": "11d8bda9-33d0-4f8b-92fd-e344b513179f",
+      "name": "Get CV",
+      "credentials": {
+        "supabaseApi": {
+          "id": "NRttZhGKf61sV03x",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "analyses",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "cv_id",
+              "keyValue": "={{ $(\"CV Tailoring Webhook\").first().json.body.cv_id }}"
+            },
+            {
+              "keyName": "job_id",
+              "keyValue": "={{ $(\"CV Tailoring Webhook\").first().json.body.job_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        0,
+        592
+      ],
+      "id": "182437a9-ce8b-4c81-ac9b-5db07bbaf956",
+      "name": "Get Analysis",
+      "credentials": {
+        "supabaseApi": {
+          "id": "NRttZhGKf61sV03x",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const cvRow = $(\"Get CV\").first().json;\nconst analysisRow = $(\"Get Analysis\").first().json;\nconst requestBody = $(\"CV Tailoring Webhook\").first().json.body || {};\n\nconst analysisData = analysisRow.analysis_data || {};\n\nconst matchResult = analysisData.match_result || {\n  match_score: analysisRow.match_score,\n  matched_skills: analysisRow.matched_skills || [],\n  missing_skills: analysisRow.missing_skills || [],\n  recommendations: analysisRow.recommendations || []\n};\n\n// The user may untick some recommendations on the analysis screen.\nif (Array.isArray(requestBody.recommendations)) {\n  matchResult.recommendations = requestBody.recommendations;\n}\n\nreturn [\n  {\n    json: {\n      cv_id: cvRow.cv_id || cvRow.id,\n      cv_text: cvRow.cv_text,\n      job_id: analysisRow.job_id,\n      cv_analysis: analysisData.cv_analysis || {},\n      job_analysis: analysisData.job_analysis || {},\n      match_result: matchResult\n    }\n  }\n];"
+      },
+      "id": "82fcaf53-c089-438b-9064-62b3ee7336d3",
+      "name": "Combine CV and Analysis",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        576
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n{\n  \"contents\": [\n    {\n      \"parts\": [\n        {\n          \"text\": \"You are a professional CV tailoring system.\\n\\nYour task is to tailor the candidate's CV for the target job description.\\n\\nSTRICT RULES:\\n1. Never invent experience, skills, education, certifications, employers, job titles, projects, achievements, or responsibilities.\\n2. Only use information that already exists in the original CV.\\n3. Do not add a skill just because it appears in the job description.\\n4. You may improve wording, structure, clarity, and keyword relevance when supported by the original CV.\\n5. Prioritize relevant experience and skills for the target job.\\n6. Preserve factual accuracy.\\n7. Do not change dates, companies, degrees, or job titles.\\n8. Do not remove important factual information unless it is clearly irrelevant.\\n9. Optimize the CV for ATS systems.\\n10. Use professional English.\\n11. Copy the candidate full name and contact details (email, phone, location, links) exactly as they appear in the original CV. Use empty values if they are missing.\\n\\nReturn ONLY valid JSON with exactly these keys:\\n{\\n  \\\"full_name\\\": \\\"\\\",\\n  \\\"contact\\\": {\\\"email\\\": \\\"\\\", \\\"phone\\\": \\\"\\\", \\\"location\\\": \\\"\\\", \\\"links\\\": []},\\n  \\\"professional_summary\\\": \\\"\\\",\\n  \\\"skills\\\": [],\\n  \\\"experience\\\": [],\\n  \\\"education\\\": [],\\n  \\\"additional_sections\\\": [],\\n  \\\"changes_made\\\": [],\\n  \\\"warnings\\\": []\\n}\\n\\nORIGINAL CV:\\n\" + $json.cv_text + \"\\n\\nCV ANALYSIS:\\n\" + JSON.stringify($json.cv_analysis) + \"\\n\\nJOB ANALYSIS:\\n\" + JSON.stringify($json.job_analysis) + \"\\n\\nMATCH RESULT:\\n\" + JSON.stringify($json.match_result)\n        }\n      ]\n    }\n  ],\n  \"generationConfig\": {\n    \"temperature\": 0,\n    \"responseMimeType\": \"application/json\"\n  }\n}\n}}",
+        "options": {}
+      },
+      "id": "ef9ddceb-4e41-4785-897c-189c4252d35d",
+      "name": "Tailor",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        448,
+        592
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1iOKoAc2QOgZopGv",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const aiResponse = $input.first().json;\n\nconst rawText = aiResponse.candidates[0].content.parts[0].text;\n\nconst tailoredCv = JSON.parse(rawText);\n\nconst previousData = $(\"Combine CV and Analysis\").first().json;\n\nreturn [\n  {\n    json: {\n      cv_id: previousData.cv_id,\n      job_id: previousData.job_id,\n      tailored_cv: tailoredCv\n    }\n  }\n];"
+      },
+      "id": "ec48fa57-ef62-4777-b255-b4135c7fecac",
+      "name": "Parse Tailored CV",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        592
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Check the tailored CV has the required fields.\nconst tailoredCv = $json.tailored_cv;\n\nconst requiredFields = [\n  \"professional_summary\",\n  \"skills\",\n  \"experience\",\n  \"education\"\n];\n\nconst missingFields = [];\n\nfor (let i = 0; i < requiredFields.length; i++) {\n  const fieldName = requiredFields[i];\n  const fieldValue = tailoredCv[fieldName];\n\n  let isMissing = false;\n\n  if (fieldValue === undefined || fieldValue === null) {\n    isMissing = true;\n  } \n  else if (Array.isArray(fieldValue) && fieldValue.length === 0) {\n    isMissing = true;\n  } \n  else if (typeof fieldValue === \"string\" && fieldValue.trim().length === 0) {\n    isMissing = true;\n  }\n\n  if (isMissing) {\n    missingFields.push(fieldName);\n  }\n}\n\nconst isValid = missingFields.length === 0;\n\nreturn [\n  {\n    json: {\n      cv_id: $json.cv_id,\n      job_id: $json.job_id,\n      tailored_cv: tailoredCv,\n      is_valid: isValid,\n      missing_fields: missingFields\n    }\n  }\n];"
+      },
+      "id": "778cfdf9-2146-4893-9c8c-5ceea4467fde",
+      "name": "Validate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        592
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "33711533-fb71-462d-bedf-ebc671286daf",
+              "leftValue": "={{ $json.is_valid }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "53e0826c-4492-403e-a9e7-17cd1fcaa0b6",
+      "name": "Is Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1104,
+        592
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { cv_id: $json.cv_id, status: 'validation_failed', missing_fields: $json.missing_fields } }}",
+        "options": {
+          "responseCode": 422
+        }
+      },
+      "id": "65525392-754d-4f58-bf5a-68157e6293e8",
+      "name": "Respond With Validation Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1328,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconst cv = data.tailored_cv;\n\nfunction escapeHtml(value) {\n  if (value === null || value === undefined) return \"\";\n  return String(value)\n    .replace(/&/g, \"&amp;\")\n    .replace(/</g, \"&lt;\")\n    .replace(/>/g, \"&gt;\")\n    .replace(/\"/g, \"&quot;\")\n    .replace(/'/g, \"&#039;\");\n}\n\nfunction asList(value) {\n  if (Array.isArray(value)) return value;\n  if (typeof value === \"string\" && value.trim().length > 0) return [value];\n  return [];\n}\n\nconst skills = asList(cv.skills)\n  .map(skill => `<li>${escapeHtml(skill)}</li>`)\n  .join(\"\");\n\nconst experience = asList(cv.experience)\n  .map(exp => {\n    if (typeof exp === \"string\") {\n      return `<li>${escapeHtml(exp)}</li>`;\n    }\n    // The AI sometimes returns \"responsibilities\", sometimes \"description\".\n    const bullets = asList(exp.responsibilities || exp.achievements || exp.description);\n    return `\n      <div class=\"experience-item\">\n        <h3>${escapeHtml(exp.job_title || exp.title || \"\")}</h3>\n        <p>${escapeHtml(exp.company || \"\")} ${escapeHtml(exp.years || exp.dates || \"\")}</p>\n        <ul>${bullets.map(r => `<li>${escapeHtml(r)}</li>`).join(\"\")}</ul>\n      </div>`;\n  })\n  .join(\"\");\n\nconst education = asList(cv.education)\n  .map(edu => {\n    if (typeof edu === \"string\") {\n      return `<li>${escapeHtml(edu)}</li>`;\n    }\n    return `\n      <div>\n        <strong>${escapeHtml(edu.degree || \"\")}</strong>\n        <span>${escapeHtml(edu.institution || edu.school || \"\")}</span>\n        <span>${escapeHtml(edu.year || \"\")}</span>\n      </div>`;\n  })\n  .join(\"\");\n\nconst html = `<!DOCTYPE html>\n<html><head><meta charset=\"UTF-8\"><title>Tailored CV</title>\n<style>\nbody { font-family: Arial, sans-serif; max-width: 850px; margin: 40px auto; padding: 40px; color: #222; line-height: 1.6; }\nh1, h2, h3 { margin-bottom: 8px; }\nh2 { border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-top: 25px; }\nul { padding-left: 20px; }\n.experience-item { margin-bottom: 20px; }\n.experience-item p { margin: 0 0 5px; font-weight: bold; }\n.experience-item h3 { margin-bottom: 2px; }\n</style></head>\n<body>\n<h1>Professional Summary</h1>\n<p>${escapeHtml(cv.professional_summary || \"\")}</p>\n<h2>Skills</h2><ul>${skills}</ul>\n<h2>Experience</h2>${experience}\n<h2>Education</h2>${education}\n</body></html>`;\n\nreturn [\n  {\n    json: {\n      cv_id: data.cv_id,\n      job_id: data.job_id,\n      tailored_cv: cv,\n      cv_html: html\n    }\n  }\n];"
+      },
+      "id": "59b1935a-9c1d-4c8c-b9fd-074c1f1cc356",
+      "name": "Parse CV Suggestions",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1328,
+        576
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://rest.apitemplate.io/v2/create-pdf",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "template_id",
+              "value": "85077b297607dd28"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.tailored_cv) }}",
+        "options": {}
+      },
+      "id": "6ce14519-1197-4a06-9a56-9aabc0535588",
+      "name": "Generate PDF (APITemplate)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1552,
+        576
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "jEUevwzwwccrH5d6",
+          "name": "Header Auth account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "tableId": "tailored_cvs",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "cv_id",
+              "fieldValue": "={{ $('Parse CV Suggestions').first().json.cv_id }}"
+            },
+            {
+              "fieldId": "job_id",
+              "fieldValue": "={{ $('Parse CV Suggestions').first().json.job_id }}"
+            },
+            {
+              "fieldId": "tailored_cv_text",
+              "fieldValue": "={{ JSON.stringify($('Parse CV Suggestions').first().json.tailored_cv) }}"
+            },
+            {
+              "fieldId": "cv_html",
+              "fieldValue": "={{ $('Parse CV Suggestions').first().json.cv_html }}"
+            },
+            {
+              "fieldId": "validation_status",
+              "fieldValue": "={{ $('Validate').first().json.is_valid }}"
+            },
+            {
+              "fieldId": "resume_url",
+              "fieldValue": "={{ $json.download_url }}"
+            }
+          ]
+        }
+      },
+      "id": "b04e3261-bd7e-40f7-bc0a-4a84bbb0e25b",
+      "name": "Save Tailored CV",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1776,
+        576
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "NRttZhGKf61sV03x",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{\n{\n  success: true,\n  cv_id: $json.cv_id,\n  job_id: $json.job_id,\n  tailored_cv_id: $json.id,\n  tailored_cv_text: $json.tailored_cv_text,\n  cv_html: $json.cv_html,\n  resume_url: $json.resume_url,\n  validation_status: $json.validation_status\n}\n}}",
+        "options": {}
+      },
+      "id": "b547c728-fe44-4192-966c-afdb1bf3a49d",
+      "name": "Respond With Tailored CV",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2000,
+        576
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "application",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "887a693f-9e7f-4a06-b8cb-08214ca63447",
+      "name": "Application Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -816,
+        960
+      ],
+      "webhookId": "f05bf066-bcac-446c-86cd-d95ec131ad5e"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "tailored_cvs",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "keyValue": "={{ $json.body.tailored_cv_id }}"
+            }
+          ]
+        }
+      },
+      "id": "26555552-1957-4896-bf51-2977d3e58cac",
+      "name": "Get Tailored CV",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -592,
+        960
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "NRttZhGKf61sV03x",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n{\n  \"contents\": [\n    {\n      \"parts\": [\n        {\n          \"text\": \"You are a professional job application email writer.\\n\\nWrite a concise, professional application email for the candidate applying to a job.\\n\\nSTRICT RULES:\\n1. Do not invent any experience, skills, education, achievements, or qualifications.\\n2. Use only the information provided below.\\n3. The email must be professional and suitable for sending to HR or a recruiter.\\n4. Mention that the candidate is applying for the target position.\\n5. Mention that the CV is attached.\\n6. Keep the email concise.\\n7. Return ONLY valid JSON.\\n\\nReturn exactly this structure:\\n{\\n  \\\"subject\\\": \\\"\\\",\\n  \\\"body\\\": \\\"\\\"\\n}\\n\\nTAILORED CV:\\n\" + $json.tailored_cv_text + \"\\n\\nJOB DESCRIPTION:\\n\" + ($('Application Webhook').first().json.body.job_description || \"\")\n        }\n      ]\n    }\n  ],\n  \"generationConfig\": {\n    \"temperature\": 0,\n    \"responseMimeType\": \"application/json\"\n  }\n}\n}}",
+        "options": {}
+      },
+      "id": "3575ea3f-7b14-4f08-bc1f-9dcd23a5d295",
+      "name": "Generate Email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -368,
+        960
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1iOKoAc2QOgZopGv",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const aiResponse = $input.first().json;\nconst rawText = aiResponse.candidates[0].content.parts[0].text;\nconst email = JSON.parse(rawText);\n\nconst webhookData = $(\"Application Webhook\").first().json.body;\nconst tailoredRow = $(\"Get Tailored CV\").first().json;\n\nif (!tailoredRow || !tailoredRow.id) {\n  throw new Error(\"Tailored CV not found for id \" + webhookData.tailored_cv_id);\n}\nif (!tailoredRow.resume_url) {\n  throw new Error(\"This tailored CV has no PDF yet (resume_url is empty). Run CV tailoring first.\");\n}\n\nreturn [\n  {\n    json: {\n      tailored_cv_id: tailoredRow.id,\n      // Take cv_id / job_id from the database row, not from the request.\n      cv_id: tailoredRow.cv_id,\n      job_id: tailoredRow.job_id,\n      recipient_email: webhookData.recipient_email,\n      subject: email.subject,\n      body: email.body,\n      resume_url: tailoredRow.resume_url\n    }\n  }\n];"
+      },
+      "id": "548d55ac-4789-4611-8752-d255ec653e2c",
+      "name": "Parse Drafted Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -144,
+        960
+      ]
+    },
+    {
+      "parameters": {
+        "tableId": "applications",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "cv_id",
+              "fieldValue": "={{ $json.cv_id }}"
+            },
+            {
+              "fieldId": "job_id",
+              "fieldValue": "={{ $json.job_id }}"
+            },
+            {
+              "fieldId": "tailored_cv_id",
+              "fieldValue": "={{ $json.tailored_cv_id }}"
+            },
+            {
+              "fieldId": "hr_email",
+              "fieldValue": "={{ $json.recipient_email }}"
+            },
+            {
+              "fieldId": "email_subject",
+              "fieldValue": "={{ $json.subject }}"
+            },
+            {
+              "fieldId": "email_body",
+              "fieldValue": "={{ $json.body }}"
+            },
+            {
+              "fieldId": "resume_url",
+              "fieldValue": "={{ $json.resume_url }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "pending_approval"
+            }
+          ]
+        }
+      },
+      "id": "860b8870-2ec9-4fa5-ba59-b15e9fdf612c",
+      "name": "Save Draft",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        80,
+        960
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "NRttZhGKf61sV03x",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{\n{\n  success: true,\n  status: 'pending_approval',\n  application_id: $json.id,\n  recipient_email: $json.hr_email,\n  subject: $json.email_subject,\n  body: $json.email_body,\n  resume_url: $json.resume_url\n}\n}}",
+        "options": {}
+      },
+      "id": "de29504c-5323-4f70-8809-4c26d06d8ef2",
+      "name": "Respond With Draft",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        304,
+        960
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "application-approve",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "b2edabac-742c-4dbb-bed6-5c5fdaf32360",
+      "name": "Approve Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -816,
+        1264
+      ],
+      "webhookId": "9bda8dd9-9ebd-4b30-bb9a-01b4acfe8c81"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "applications",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "keyValue": "={{ $json.body.application_id }}"
+            }
+          ]
+        }
+      },
+      "id": "662c1ef6-0949-4164-b486-7cc74eb91029",
+      "name": "Get Application",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -592,
+        1264
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "NRttZhGKf61sV03x",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "7616fdf3-7efb-4166-9b0c-faab57ffbfb9",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "pending_approval",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "3c44fde1-d52a-4222-a2cf-394c849a49e4",
+              "leftValue": "={{ $json.resume_url }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "15000ff2-dc69-462c-8f1e-82bef063159c",
+              "leftValue": "={{ $json.hr_email }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "d69b98e3-ae49-4dbf-847c-4b0c12135bab",
+      "name": "Can Send?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -368,
+        1264
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.resume_url }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "156ca6a5-c5e6-47e8-ab43-5aa4e96d1652",
+      "name": "Download CV PDF",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        -144,
+        1248
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Give the attachment a clean name and type.\nconst item = $input.first();\nitem.binary.data.fileName = \"CV.pdf\";\nitem.binary.data.mimeType = \"application/pdf\";\nreturn [item];"
+      },
+      "id": "89d0dc21-ca5a-4319-a261-c80993af2462",
+      "name": "Name PDF",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        80,
+        1248
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Get Application').first().json.hr_email }}",
+        "subject": "={{ $('Approve Webhook').first().json.body.subject || $('Get Application').first().json.email_subject }}",
+        "emailType": "text",
+        "message": "={{ $('Approve Webhook').first().json.body.body || $('Get Application').first().json.email_body }}",
+        "options": {
+          "appendAttribution": false,
+          "attachmentsUi": {
+            "attachmentsBinary": [
+              {}
+            ]
+          }
+        }
+      },
+      "id": "5706d952-7183-46b3-a9ad-f018e959c094",
+      "name": "Send Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        304,
+        1248
+      ],
+      "webhookId": "88a44283-f7d9-4225-ba19-bd2e7f1e8136",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "HCFSWIQ8ZxmGX7no",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "applications",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Get Application').first().json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "sent"
+            },
+            {
+              "fieldId": "sent_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            },
+            {
+              "fieldId": "gmail_message_id",
+              "fieldValue": "={{ $json.id }}"
+            },
+            {
+              "fieldId": "email_subject",
+              "fieldValue": "={{ $('Approve Webhook').first().json.body.subject || $('Get Application').first().json.email_subject }}"
+            },
+            {
+              "fieldId": "email_body",
+              "fieldValue": "={{ $('Approve Webhook').first().json.body.body || $('Get Application').first().json.email_body }}"
+            }
+          ]
+        }
+      },
+      "id": "21774ed5-9282-443e-92f2-aaa351a1a3b4",
+      "name": "Mark As Sent",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        528,
+        1248
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "NRttZhGKf61sV03x",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{\n{\n  success: true,\n  status: 'sent',\n  application_id: $('Get Application').first().json.id,\n  gmail_message_id: $('Send Email').first().json.id\n}\n}}",
+        "options": {}
+      },
+      "id": "e1a7b8b3-dd4f-47ab-9104-f05770966790",
+      "name": "Respond Sent",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        752,
+        1248
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{\n{\n  success: false,\n  application_id: $('Approve Webhook').first().json.body.application_id,\n  status: $json.status || 'not_found',\n  message: !$json.id ? 'Application not found' : ($json.status !== 'pending_approval' ? 'Application is not waiting for approval (already sent?)' : 'Missing recipient email or CV PDF')\n}\n}}",
+        "options": {
+          "responseCode": 409
+        }
+      },
+      "id": "24e98a72-efce-4538-b961-8bcbecb0313c",
+      "name": "Respond Cannot Send",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -144,
+        1456
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "CV Analysis Webhook": {
+      "main": [
+        [
+          {
+            "node": "Extract CV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract CV": {
+      "main": [
+        [
+          {
+            "node": "Create a row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create a row": {
+      "main": [
+        [
+          {
+            "node": "Analyze CV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze CV": {
+      "main": [
+        [
+          {
+            "node": "Parse CV Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse CV Analysis": {
+      "main": [
+        [
+          {
+            "node": "Analyze Job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Job": {
+      "main": [
+        [
+          {
+            "node": "Parse Job Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Job Analysis": {
+      "main": [
+        [
+          {
+            "node": "AI Match",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Match": {
+      "main": [
+        [
+          {
+            "node": "Parse Match",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Match": {
+      "main": [
+        [
+          {
+            "node": "Create a row1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create a row1": {
+      "main": [
+        [
+          {
+            "node": "Respond With Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CV Tailoring Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get CV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get CV": {
+      "main": [
+        [
+          {
+            "node": "Get Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Analysis": {
+      "main": [
+        [
+          {
+            "node": "Combine CV and Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine CV and Analysis": {
+      "main": [
+        [
+          {
+            "node": "Tailor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tailor": {
+      "main": [
+        [
+          {
+            "node": "Parse Tailored CV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Tailored CV": {
+      "main": [
+        [
+          {
+            "node": "Validate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate": {
+      "main": [
+        [
+          {
+            "node": "Is Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Valid?": {
+      "main": [
+        [
+          {
+            "node": "Parse CV Suggestions",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond With Validation Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse CV Suggestions": {
+      "main": [
+        [
+          {
+            "node": "Generate PDF (APITemplate)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate PDF (APITemplate)": {
+      "main": [
+        [
+          {
+            "node": "Save Tailored CV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Tailored CV": {
+      "main": [
+        [
+          {
+            "node": "Respond With Tailored CV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Application Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get Tailored CV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Tailored CV": {
+      "main": [
+        [
+          {
+            "node": "Generate Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Email": {
+      "main": [
+        [
+          {
+            "node": "Parse Drafted Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Drafted Email": {
+      "main": [
+        [
+          {
+            "node": "Save Draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Draft": {
+      "main": [
+        [
+          {
+            "node": "Respond With Draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Approve Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get Application",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Application": {
+      "main": [
+        [
+          {
+            "node": "Can Send?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Can Send?": {
+      "main": [
+        [
+          {
+            "node": "Download CV PDF",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Cannot Send",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download CV PDF": {
+      "main": [
+        [
+          {
+            "node": "Name PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Name PDF": {
+      "main": [
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email": {
+      "main": [
+        [
+          {
+            "node": "Mark As Sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark As Sent": {
+      "main": [
+        [
+          {
+            "node": "Respond Sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "e0c9e227-87dd-4165-95d8-df1c806eff68",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "8fbb030609fff4e1e07686cbc3b452e5a2745bce52df286b9272113796fedcaf"
+  },
+  "nodeGroups": [],
+  "id": "Rg73PKEDhH0ymD5j",
+  "tags": []
+}

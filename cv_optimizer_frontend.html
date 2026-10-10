@@ -1,0 +1,1170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CV Optimizer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+
+  /* ---------- Design tokens ---------- */
+  :root{
+    --desk:        #F4F1E9;   /* page background, matches the brand's cream */
+    --paper:       #FFFFFF;   /* card / modal surface */
+    --paper-edge:  #E3DDCB;
+    --ink:         #16233F;   /* navy — headings and body text */
+    --ink-soft:    #57647D;
+    --ink-faint:   #98A2B5;
+    --accent:      #0E7A72;   /* brand teal: primary actions, good matches */
+    --accent-soft: #DDEEEC;
+    --warn:        #D9553F;   /* brand coral: attention, missing signals */
+    --warn-soft:   #FBE4DE;
+    --danger:      #9C3B2E;
+    --danger-soft: #F3E1DC;
+    --pale-blue:      #D9E2F3;  /* secondary buttons */
+    --pale-blue-ink:  #16233F;
+    --radius-sm:   999px;
+    --radius-md:   14px;
+    --serif: 'Fraunces', Georgia, serif;
+    --sans:  'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    --mono:  'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
+  }
+
+  *{ box-sizing: border-box; }
+
+  body{
+    margin:0;
+    background: var(--desk);
+    color: var(--ink);
+    font-family: var(--sans);
+    min-height: 100vh;
+    display:flex;
+    justify-content:center;
+    padding: 40px 16px 80px;
+  }
+
+  .page{
+    width: 100%;
+    max-width: 640px;
+  }
+
+  /* ---------- Header + stepper ---------- */
+  .wordmark{
+    font-family: var(--serif);
+    font-size: 22px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    margin: 0 0 28px;
+  }
+
+  .stepper{
+    display:flex;
+    align-items:flex-start;
+    margin-bottom: 32px;
+  }
+
+  .step{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    flex: 1;
+    position: relative;
+  }
+
+  .step-circle{
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 1.5px solid var(--ink-faint);
+    color: var(--ink-faint);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-family: var(--mono);
+    font-size: 12px;
+    background: var(--desk);
+    z-index: 1;
+  }
+
+  .step-line{
+    position:absolute;
+    top: 12px;
+    left: 50%;
+    width: 100%;
+    height: 1.5px;
+    background: var(--ink-faint);
+    opacity: 0.35;
+    z-index: 0;
+  }
+
+  .step:last-child .step-line{ display:none; }
+
+  .step-label{
+    font-size: 12px;
+    color: var(--ink-faint);
+    margin-top: 6px;
+  }
+
+  .step.done .step-circle{
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+
+  .step.current .step-circle{
+    border-color: var(--ink);
+    color: var(--ink);
+  }
+
+  .step.current .step-label,
+  .step.done .step-label{
+    color: var(--ink);
+  }
+
+  /* ---------- Document card ---------- */
+  .sheet{
+    background: var(--paper);
+    border: 1px solid var(--paper-edge);
+    border-radius: var(--radius-md);
+    box-shadow: 0 1px 0 rgba(33,31,26,0.04), 0 10px 30px rgba(33,31,26,0.06);
+    padding: 36px 32px;
+  }
+
+  .screen{ display:none; }
+  .screen.active{ display:block; }
+
+  h1{
+    font-family: var(--serif);
+    font-size: 26px;
+    font-weight: 500;
+    line-height: 1.3;
+    margin: 0 0 6px;
+  }
+
+  .sub{
+    color: var(--ink-soft);
+    font-size: 14px;
+    margin: 0 0 26px;
+    line-height: 1.5;
+  }
+
+  label{
+    display:block;
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 8px;
+    margin-top: 22px;
+  }
+
+  label:first-of-type{ margin-top: 0; }
+
+  input[type="text"], input[type="email"], textarea{
+    width: 100%;
+    font-family: var(--sans);
+    font-size: 14px;
+    color: var(--ink);
+    background: #fff;
+    border: 1px solid var(--paper-edge);
+    border-radius: var(--radius-md);
+    padding: 11px 14px;
+    resize: vertical;
+  }
+
+  input[type="text"]:focus, input[type="email"]:focus, textarea:focus,
+  button:focus-visible, .dropzone:focus-visible, .tab-btn:focus-visible{
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  textarea{ min-height: 110px; line-height: 1.5; }
+
+  .tabs{ display:flex; gap: 6px; margin-bottom: 10px; }
+
+  .tab-btn{
+    font-family: var(--sans);
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    background: transparent;
+    border: 1px solid var(--paper-edge);
+    border-radius: var(--radius-sm);
+    padding: 6px 10px;
+    cursor:pointer;
+  }
+
+  .tab-btn.active{
+    background: var(--ink);
+    color: #fff;
+    border-color: var(--ink);
+  }
+
+  .dropzone{
+    border: 1.5px dashed var(--paper-edge);
+    border-radius: var(--radius-md);
+    padding: 26px 16px;
+    text-align:center;
+    cursor:pointer;
+    color: var(--ink-soft);
+    font-size: 13.5px;
+  }
+
+  .dropzone.drag-over{ border-color: var(--accent); background: var(--accent-soft); }
+  .dropzone .filename{ color: var(--ink); font-weight: 500; margin-top: 4px; }
+
+  .hidden{ display:none !important; }
+
+  /* ---------- Buttons ---------- */
+  .btn{
+    font-family: var(--sans);
+    font-size: 14px;
+    font-weight: 500;
+    border-radius: var(--radius-sm);
+    padding: 12px 20px;
+    border: none;
+    cursor: pointer;
+  }
+
+  .btn-primary{ background: var(--accent); color: #fff; width: 100%; margin-top: 28px; }
+  .btn-primary:disabled{ background: var(--ink-faint); cursor: not-allowed; }
+  .btn-secondary{ background: var(--pale-blue); color: var(--pale-blue-ink); border: none; }
+
+  .btn-row{ display:flex; gap: 10px; margin-top: 28px; }
+  .btn-row .btn-primary{ margin-top: 0; }
+
+  .status-line{
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    margin-top: 12px;
+    min-height: 16px;
+  }
+
+  .status-line.error{ color: var(--danger); }
+
+  /* ---------- Screen 2: analysis ---------- */
+  .score-row{
+    display:flex;
+    align-items:baseline;
+    gap: 14px;
+    margin-bottom: 4px;
+  }
+
+  .score-number{
+    font-family: var(--mono);
+    font-size: 52px;
+    font-weight: 500;
+    color: var(--accent);
+    line-height: 1;
+  }
+
+  .score-label{ color: var(--ink-soft); font-size: 14px; }
+  .score-caption{ color: var(--ink-soft); font-size: 13px; margin: 0 0 26px; }
+
+  .meter-row{ margin-bottom: 14px; }
+
+  .meter-head{
+    display:flex;
+    justify-content:space-between;
+    font-size: 13px;
+    margin-bottom: 6px;
+  }
+
+  .meter-value{ font-family: var(--mono); color: var(--ink-soft); }
+
+  .meter-track{
+    height: 6px;
+    background: var(--paper-edge);
+    border-radius: 3px;
+    overflow:hidden;
+  }
+
+  .meter-fill{ height: 100%; background: var(--accent); }
+
+  .section-title{
+    font-size: 13px;
+    font-weight: 600;
+    margin: 30px 0 12px;
+    padding-top: 20px;
+    border-top: 1px solid var(--paper-edge);
+  }
+
+  .section-title:first-of-type{ border-top: none; padding-top:0; margin-top: 26px; }
+
+  .tag-list{ display:flex; flex-wrap:wrap; gap: 8px; }
+
+  .tag{
+    font-family: var(--mono);
+    font-size: 12.5px;
+    padding: 5px 10px;
+    border-radius: var(--radius-sm);
+  }
+
+  .tag.matched{ background: var(--accent-soft); color: var(--accent); }
+  .tag.missing{ background: var(--warn-soft); color: var(--warn); }
+
+  .rec-list{ display:flex; flex-direction:column; gap: 10px; }
+
+  .rec-item{ display:flex; align-items:flex-start; gap: 10px; font-size: 14px; }
+  .rec-item input{ margin-top: 3px; }
+
+  /* ---------- Screen 3: optimized CV ---------- */
+  .cv-preview{
+    background: #fff;
+    border: 1px solid var(--paper-edge);
+    border-radius: var(--radius-md);
+    padding: 24px;
+    font-size: 13.5px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    max-height: 420px;
+    overflow-y: auto;
+  }
+
+  .cv-preview .cv-name{ font-family: var(--serif); font-size: 19px; margin: 0 0 2px; }
+  .cv-preview .cv-title{ color: var(--ink-soft); margin: 0 0 16px; }
+  .cv-preview .cv-h{ font-weight: 600; font-size: 12.5px; margin: 16px 0 6px; }
+  .cv-preview ul{ margin: 0; padding-left: 18px; }
+
+  /* ---------- Screen 4: application email ---------- */
+  .field-row{ display:flex; gap: 16px; }
+  .field-row > div{ flex:1; }
+  .field-static{
+    font-size: 14px;
+    padding: 11px 0;
+    border-bottom: 1px solid var(--paper-edge);
+  }
+
+  .approval-note{
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    background: var(--accent-soft);
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+    margin-top: 18px;
+  }
+
+  .sent-note{
+    font-size: 13.5px;
+    color: var(--accent);
+    background: var(--accent-soft);
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+    margin-top: 18px;
+  }
+
+  .pdf-link, .attach-chip{
+    display:inline-block;
+    margin-top: 12px;
+    font-size: 13px;
+    color: var(--accent);
+    text-decoration: none;
+    font-weight: 500;
+  }
+  .pdf-link:hover, .attach-chip:hover{ text-decoration: underline; }
+  .attach-chip{
+    margin-top: 0;
+    background: var(--accent-soft);
+    border-radius: var(--radius-sm);
+    padding: 6px 12px;
+    font-family: var(--mono);
+    font-size: 12.5px;
+  }
+  input[readonly], textarea[readonly]{ background: #FBFAF6; }
+  .btn-secondary:disabled{ opacity: .5; cursor: not-allowed; }
+
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <p class="wordmark">CV Optimizer</p>
+
+  <div class="stepper" id="stepper">
+    <div class="step" data-step="1"><div class="step-line"></div><div class="step-circle">1</div><div class="step-label">Upload</div></div>
+    <div class="step" data-step="2"><div class="step-line"></div><div class="step-circle">2</div><div class="step-label">Analysis</div></div>
+    <div class="step" data-step="3"><div class="step-line"></div><div class="step-circle">3</div><div class="step-label">Optimize</div></div>
+    <div class="step" data-step="4"><div class="step-line"></div><div class="step-circle">4</div><div class="step-label">Send</div></div>
+  </div>
+
+  <div class="sheet">
+
+    <!-- ============ SCREEN 1: UPLOAD ============ -->
+    <section id="screen-upload" class="screen active">
+      <h1>Let's see how your CV reads.</h1>
+      <p class="sub">Add your CV and the job you're applying for. The analysis stays specific to this one job.</p>
+
+      <label>Your CV</label>
+      <div class="tabs">
+        <button class="tab-btn active" data-cv-tab="file">Upload file</button>
+        <button class="tab-btn" data-cv-tab="text">Paste text</button>
+      </div>
+      <div id="cv-tab-file">
+        <div class="dropzone" id="dropzone" tabindex="0">
+          <div id="dropzone-label">Drop a PDF or DOCX here, or click to choose one</div>
+          <div class="filename hidden" id="dropzone-filename"></div>
+        </div>
+        <input type="file" id="file-input" accept=".pdf,.docx" class="hidden">
+      </div>
+      <div id="cv-tab-text" class="hidden">
+        <textarea id="cv-text-input" placeholder="Paste the text of your CV here"></textarea>
+      </div>
+
+      <label for="job-description">Job description</label>
+      <textarea id="job-description" placeholder="Paste the job description here"></textarea>
+
+      <label for="hr-email">HR email</label>
+      <input type="email" id="hr-email" placeholder="hr@company.com">
+
+      <button class="btn btn-primary" id="btn-analyze">Analyze CV</button>
+      <div class="status-line" id="status-upload"></div>
+    </section>
+
+    <!-- ============ SCREEN 2: ANALYSIS ============ -->
+    <section id="screen-analysis" class="screen">
+      <h1>CV match analysis</h1>
+      <div class="score-row">
+        <div class="score-number" id="score-number">0%</div>
+        <div class="score-label" id="score-word">—</div>
+      </div>
+      <p class="score-caption">Based on the skills, experience and keywords this job description asks for.</p>
+
+      <div class="meter-row">
+        <div class="meter-head"><span>Skills</span><span class="meter-value" id="meter-skills-value">0%</span></div>
+        <div class="meter-track"><div class="meter-fill" id="meter-skills-fill" style="width:0%"></div></div>
+      </div>
+      <div class="meter-row">
+        <div class="meter-head"><span>Experience</span><span class="meter-value" id="meter-experience-value">0%</span></div>
+        <div class="meter-track"><div class="meter-fill" id="meter-experience-fill" style="width:0%"></div></div>
+      </div>
+      <div class="meter-row">
+        <div class="meter-head"><span>Keywords</span><span class="meter-value" id="meter-keywords-value">0%</span></div>
+        <div class="meter-track"><div class="meter-fill" id="meter-keywords-fill" style="width:0%"></div></div>
+      </div>
+
+      <div class="section-title">Matched skills</div>
+      <div class="tag-list" id="matched-skills-list"></div>
+
+      <div class="section-title">Missing or weak</div>
+      <div class="tag-list" id="missing-skills-list"></div>
+
+      <div class="section-title">Before we tailor it</div>
+      <div class="rec-list" id="recommendations-list"></div>
+
+      <button class="btn btn-primary" id="btn-tailor">Tailor my CV</button>
+      <div class="status-line" id="status-analysis"></div>
+    </section>
+
+    <!-- ============ SCREEN 3: OPTIMIZED CV ============ -->
+    <section id="screen-optimize" class="screen">
+      <h1>Your optimized CV</h1>
+      <p class="sub">Rewritten to speak to this job, using your real experience. Approving it drafts the application email — nothing is sent yet.</p>
+
+      <div class="tabs">
+        <button class="tab-btn" data-cv-view="original">Original</button>
+        <button class="tab-btn active" data-cv-view="optimized">Optimized</button>
+      </div>
+
+      <div class="cv-preview" id="cv-preview-original" style="display:none;"></div>
+      <div class="cv-preview" id="cv-preview-optimized"></div>
+      <a class="pdf-link hidden" id="pdf-link" target="_blank" rel="noopener">Open the PDF version ↗</a>
+
+      <button class="btn btn-primary" id="btn-approve">Approve CV</button>
+      <div class="status-line" id="status-optimize"></div>
+    </section>
+
+    <!-- ============ SCREEN 4: APPLICATION EMAIL ============ -->
+    <section id="screen-apply" class="screen">
+      <h1>Application email</h1>
+      <p class="sub">Drafted from your optimized CV. Read it over — it only goes out when you approve it.</p>
+
+      <div class="field-row">
+        <div><label>To</label><div class="field-static" id="apply-to"></div></div>
+      </div>
+      <label for="apply-subject">Subject</label>
+      <input type="text" id="apply-subject" readonly>
+
+      <label for="apply-body">Message</label>
+      <textarea id="apply-body" style="min-height:220px;" readonly></textarea>
+
+      <label>Attachment</label>
+      <a class="attach-chip" id="attach-link" target="_blank" rel="noopener">📎 CV.pdf</a>
+
+      <div class="btn-row">
+        <button class="btn btn-secondary" id="btn-edit">Edit</button>
+        <button class="btn btn-primary" id="btn-send">Approve &amp; send</button>
+      </div>
+      <div class="status-line" id="status-apply"></div>
+      <div class="sent-note hidden" id="sent-note">Sent, with your CV attached. The application is marked as sent.</div>
+    </section>
+
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<script>
+
+  // =====================================================================
+  // CONFIG - the n8n webhook base URL.
+  // Use ".../webhook-test" while testing in the n8n editor,
+  // and ".../webhook" once the workflow is active.
+  // =====================================================================
+  const CONFIG = {
+    N8N_BASE_URL: "https://YOUR-N8N-HOST/webhook"
+  };
+
+  if (window.pdfjsLib) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  }
+
+  // App state shared between screens.
+  const state = {
+    cvId: null,
+    jobId: null,
+    cvText: "",
+    jobDescription: "",
+    hrEmail: "",
+    matchResult: null,
+    tailoredCv: null,
+    tailoredCvId: null,   // id of the row in tailored_cvs
+    resumeUrl: null,      // PDF made from the template
+    applicationId: null,  // id of the draft row in applications
+    sent: false
+  };
+
+  // ---------------------------------------------------------------------
+  // Small helpers
+  // ---------------------------------------------------------------------
+
+  function generateId() {
+    if (window.crypto && crypto.randomUUID) {
+      return crypto.randomUUID();
+    }
+    // Fallback for older browsers (still a valid UUID v4 shape).
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
+      const r = Math.random() * 16 | 0;
+      const v = c === "x" ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+
+  function isValidEmail(value) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+  }
+
+  function showScreen(screenName) {
+    const screenIds = ["screen-upload", "screen-analysis", "screen-optimize", "screen-apply"];
+    for (let i = 0; i < screenIds.length; i++) {
+      const screenElement = document.getElementById(screenIds[i]);
+      if (screenIds[i] === screenName) {
+        screenElement.classList.add("active");
+      } else {
+        screenElement.classList.remove("active");
+      }
+    }
+    updateStepper(screenName);
+    window.scrollTo(0, 0);
+  }
+
+  function updateStepper(screenName) {
+    const stepNumberByScreen = {
+      "screen-upload": 1,
+      "screen-analysis": 2,
+      "screen-optimize": 3,
+      "screen-apply": 4
+    };
+    const currentStepNumber = stepNumberByScreen[screenName];
+    const stepElements = document.querySelectorAll(".step");
+
+    for (let i = 0; i < stepElements.length; i++) {
+      const stepElement = stepElements[i];
+      const thisStepNumber = parseInt(stepElement.getAttribute("data-step"), 10);
+      stepElement.classList.remove("done", "current");
+
+      if (thisStepNumber < currentStepNumber || (state.sent && thisStepNumber === 4)) {
+        stepElement.classList.add("done");
+      } else if (thisStepNumber === currentStepNumber) {
+        stepElement.classList.add("current");
+      }
+    }
+  }
+
+  function setStatus(elementId, message, isError) {
+    const statusElement = document.getElementById(elementId);
+    statusElement.textContent = message;
+    if (isError) {
+      statusElement.classList.add("error");
+    } else {
+      statusElement.classList.remove("error");
+    }
+  }
+
+  function setButtonLoading(button, isLoading, loadingText, normalText) {
+    button.disabled = isLoading;
+    button.textContent = isLoading ? loadingText : normalText;
+  }
+
+  // POST JSON to an n8n webhook and always return { ok, status, data }.
+  // n8n sometimes answers with an empty body or plain text, so we
+  // read the text first and only then try to parse it.
+  async function postToN8n(path, payload) {
+    const response = await fetch(CONFIG.N8N_BASE_URL + path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    const responseText = await response.text();
+    let data = {};
+    if (responseText) {
+      try {
+        data = JSON.parse(responseText);
+      } catch (e) {
+        data = { message: responseText };
+      }
+    }
+    return { ok: response.ok, status: response.status, data: data };
+  }
+
+  function asList(value) {
+    if (Array.isArray(value)) return value;
+    if (typeof value === "string" && value.trim().length > 0) return [value];
+    return [];
+  }
+
+  // ---------------------------------------------------------------------
+  // Screen 1: CV / job description input
+  // ---------------------------------------------------------------------
+
+  let activeCvTab = "file";
+  let uploadedCvText = "";
+
+  const tabButtons = document.querySelectorAll("[data-cv-tab]");
+  for (let i = 0; i < tabButtons.length; i++) {
+    tabButtons[i].addEventListener("click", function () {
+      activeCvTab = this.getAttribute("data-cv-tab");
+      for (let j = 0; j < tabButtons.length; j++) {
+        tabButtons[j].classList.remove("active");
+      }
+      this.classList.add("active");
+      document.getElementById("cv-tab-file").classList.toggle("hidden", activeCvTab !== "file");
+      document.getElementById("cv-tab-text").classList.toggle("hidden", activeCvTab !== "text");
+    });
+  }
+
+  const dropzone = document.getElementById("dropzone");
+  const fileInput = document.getElementById("file-input");
+
+  dropzone.addEventListener("click", function () { fileInput.click(); });
+  dropzone.addEventListener("keydown", function (event) {
+    if (event.key === "Enter" || event.key === " ") { fileInput.click(); }
+  });
+  dropzone.addEventListener("dragover", function (event) {
+    event.preventDefault();
+    dropzone.classList.add("drag-over");
+  });
+  dropzone.addEventListener("dragleave", function () {
+    dropzone.classList.remove("drag-over");
+  });
+  dropzone.addEventListener("drop", function (event) {
+    event.preventDefault();
+    dropzone.classList.remove("drag-over");
+    if (event.dataTransfer.files.length > 0) {
+      handleCvFile(event.dataTransfer.files[0]);
+    }
+  });
+  fileInput.addEventListener("change", function () {
+    if (fileInput.files.length > 0) {
+      handleCvFile(fileInput.files[0]);
+    }
+  });
+
+  async function handleCvFile(file) {
+    document.getElementById("dropzone-label").textContent = "Reading file...";
+
+    try {
+      let extractedText = "";
+      const lowerName = file.name.toLowerCase();
+
+      if (lowerName.endsWith(".pdf")) {
+        extractedText = await extractTextFromPdf(file);
+      } else if (lowerName.endsWith(".docx")) {
+        extractedText = await extractTextFromDocx(file);
+      } else {
+        throw new Error("Please upload a .pdf or .docx file.");
+      }
+
+      if (extractedText.trim().length === 0) {
+        throw new Error("No text found in the file.");
+      }
+
+      uploadedCvText = extractedText;
+      document.getElementById("dropzone-label").textContent = "File loaded";
+      const filenameElement = document.getElementById("dropzone-filename");
+      filenameElement.textContent = file.name;
+      filenameElement.classList.remove("hidden");
+      setStatus("status-upload", "", false);
+    } catch (error) {
+      document.getElementById("dropzone-label").textContent = "Drop a PDF or DOCX here, or click to choose one";
+      setStatus("status-upload", "Could not read that file — try the \"Paste text\" tab instead.", true);
+    }
+  }
+
+  async function extractTextFromPdf(file) {
+    const fileBuffer = await file.arrayBuffer();
+    const pdfDocument = await pdfjsLib.getDocument({ data: fileBuffer }).promise;
+
+    const pageTextParts = [];
+    for (let pageNumber = 1; pageNumber <= pdfDocument.numPages; pageNumber++) {
+      const page = await pdfDocument.getPage(pageNumber);
+      const textContent = await page.getTextContent();
+
+      // Keep line breaks so the CV sections stay readable for the AI.
+      let pageText = "";
+      for (let i = 0; i < textContent.items.length; i++) {
+        const item = textContent.items[i];
+        pageText += item.str;
+        pageText += item.hasEOL ? "\n" : " ";
+      }
+      pageTextParts.push(pageText);
+    }
+
+    return pageTextParts.join("\n");
+  }
+
+  async function extractTextFromDocx(file) {
+    const fileBuffer = await file.arrayBuffer();
+    const result = await mammoth.extractRawText({ arrayBuffer: fileBuffer });
+    return result.value;
+  }
+
+  document.getElementById("btn-analyze").addEventListener("click", analyzeCv);
+
+  async function analyzeCv() {
+    const jobDescription = document.getElementById("job-description").value.trim();
+    const hrEmail = document.getElementById("hr-email").value.trim();
+
+    let cvText = "";
+    if (activeCvTab === "file") {
+      cvText = uploadedCvText.trim();
+    } else {
+      cvText = document.getElementById("cv-text-input").value.trim();
+    }
+
+    if (cvText.length === 0) {
+      setStatus("status-upload", "Add your CV first — upload a file or paste the text.", true);
+      return;
+    }
+    if (jobDescription.length === 0) {
+      setStatus("status-upload", "Paste the job description too.", true);
+      return;
+    }
+    if (!isValidEmail(hrEmail)) {
+      setStatus("status-upload", "Add a valid HR email — the application will be sent there.", true);
+      return;
+    }
+
+    state.cvId = generateId();
+    state.jobId = generateId();
+    state.cvText = cvText;
+    state.jobDescription = jobDescription;
+    state.hrEmail = hrEmail;
+
+    const analyzeButton = document.getElementById("btn-analyze");
+    setButtonLoading(analyzeButton, true, "Analyzing...", "Analyze CV");
+    setStatus("status-upload", "", false);
+
+    try {
+      const result = await postToN8n("/cv-analysis", {
+        cv_id: state.cvId,
+        job_id: state.jobId,
+        cv_text: state.cvText,
+        job_description: state.jobDescription
+      });
+
+      if (!result.ok) {
+        throw new Error("the analysis service returned an error (status " + result.status + ").");
+      }
+
+      const matchResult = result.data.match_result;
+      if (!matchResult || matchResult.match_score === undefined) {
+        throw new Error("the analysis came back empty.");
+      }
+
+      state.matchResult = matchResult;
+      renderAnalysisScreen(state.matchResult);
+      showScreen("screen-analysis");
+    } catch (error) {
+      setStatus("status-upload", "Could not analyze the CV: " + error.message, true);
+    } finally {
+      setButtonLoading(analyzeButton, false, "Analyzing...", "Analyze CV");
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // Screen 2: analysis result
+  // ---------------------------------------------------------------------
+
+  function renderAnalysisScreen(matchResult) {
+    const score = Math.round(Number(matchResult.match_score) || 0);
+    const matchedSkills = asList(matchResult.matched_skills);
+    const missingSkills = asList(matchResult.missing_skills);
+
+    document.getElementById("score-number").textContent = score + "%";
+    document.getElementById("score-word").textContent = scoreToWord(score);
+
+    // The workflow returns one overall match score. Experience and
+    // keyword scores are not computed separately yet, so the same
+    // number is shown there for now.
+    setMeter("skills", score);
+    setMeter("experience", score);
+    setMeter("keywords", score);
+
+    const matchedList = document.getElementById("matched-skills-list");
+    matchedList.innerHTML = "";
+    for (let i = 0; i < matchedSkills.length; i++) {
+      const tagElement = document.createElement("span");
+      tagElement.className = "tag matched";
+      tagElement.textContent = "✓ " + matchedSkills[i];
+      matchedList.appendChild(tagElement);
+    }
+
+    const missingList = document.getElementById("missing-skills-list");
+    missingList.innerHTML = "";
+    for (let i = 0; i < missingSkills.length; i++) {
+      const tagElement = document.createElement("span");
+      tagElement.className = "tag missing";
+      tagElement.textContent = "⚠ " + missingSkills[i];
+      missingList.appendChild(tagElement);
+    }
+
+    renderRecommendations(matchResult, matchedSkills, missingSkills);
+  }
+
+  function scoreToWord(score) {
+    if (score >= 80) { return "Strong match"; }
+    if (score >= 55) { return "Good match"; }
+    if (score >= 30) { return "Partial match"; }
+    return "Weak match";
+  }
+
+  function setMeter(name, value) {
+    document.getElementById("meter-" + name + "-value").textContent = value + "%";
+    document.getElementById("meter-" + name + "-fill").style.width = value + "%";
+  }
+
+  function renderRecommendations(matchResult, matchedSkills, missingSkills) {
+    // Prefer the AI's own recommendations; build simple ones if it sent none.
+    let recommendations = asList(matchResult.recommendations);
+
+    if (recommendations.length === 0) {
+      for (let i = 0; i < missingSkills.length; i++) {
+        recommendations.push("Add or emphasize \"" + missingSkills[i] + "\" if you have relevant experience");
+      }
+      if (matchedSkills.length > 0) {
+        recommendations.push("Move \"" + matchedSkills[0] + "\" near the top of your skills section");
+      }
+      recommendations.push("Tighten experience bullets around the responsibilities in this job description");
+    }
+
+    const recListElement = document.getElementById("recommendations-list");
+    recListElement.innerHTML = "";
+    for (let i = 0; i < recommendations.length; i++) {
+      const itemElement = document.createElement("label");
+      itemElement.className = "rec-item";
+
+      const checkboxElement = document.createElement("input");
+      checkboxElement.type = "checkbox";
+      checkboxElement.checked = true;
+      checkboxElement.setAttribute("data-recommendation", recommendations[i]);
+
+      const textElement = document.createElement("span");
+      textElement.textContent = recommendations[i];
+
+      itemElement.appendChild(checkboxElement);
+      itemElement.appendChild(textElement);
+      recListElement.appendChild(itemElement);
+    }
+  }
+
+  document.getElementById("btn-tailor").addEventListener("click", tailorCv);
+
+  async function tailorCv() {
+    const checkedRecommendations = [];
+    const checkboxes = document.querySelectorAll("#recommendations-list input[type=checkbox]");
+    for (let i = 0; i < checkboxes.length; i++) {
+      if (checkboxes[i].checked) {
+        checkedRecommendations.push(checkboxes[i].getAttribute("data-recommendation"));
+      }
+    }
+
+    const tailorButton = document.getElementById("btn-tailor");
+    setButtonLoading(tailorButton, true, "Tailoring and building the PDF...", "Tailor my CV");
+    setStatus("status-analysis", "", false);
+
+    try {
+      const result = await postToN8n("/cv-tailoring", {
+        cv_id: state.cvId,
+        job_id: state.jobId,
+        recommendations: checkedRecommendations
+      });
+      const data = result.data;
+
+      if (!result.ok) {
+        throw new Error(
+          data.status === "validation_failed"
+            ? "the tailored CV was missing: " + asList(data.missing_fields).join(", ")
+            : "the tailoring service returned an error (status " + result.status + ")."
+        );
+      }
+
+      if (!data.tailored_cv_text) {
+        throw new Error("the tailoring service did not return the tailored CV.");
+      }
+
+      // The id of the tailored_cvs row — the next step needs it.
+      state.tailoredCvId = data.tailored_cv_id || null;
+      state.resumeUrl = data.resume_url || null;
+
+      if (!state.tailoredCvId) {
+        throw new Error("the tailoring service did not return tailored_cv_id.");
+      }
+
+      // tailored_cv_text is JSON stored as a string.
+      let tailoredCv = data.tailored_cv_text;
+      if (typeof tailoredCv === "string") {
+        try {
+          tailoredCv = JSON.parse(tailoredCv);
+        } catch (e) {
+          throw new Error("the tailored CV response is not valid JSON.");
+        }
+      }
+      if (!tailoredCv || typeof tailoredCv !== "object") {
+        throw new Error("the tailored CV data is empty or invalid.");
+      }
+      state.tailoredCv = tailoredCv;
+
+      renderOptimizeScreen();
+      showScreen("screen-optimize");
+    } catch (error) {
+      setStatus("status-analysis", "Could not tailor the CV: " + error.message, true);
+    } finally {
+      setButtonLoading(tailorButton, false, "Tailoring and building the PDF...", "Tailor my CV");
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // Screen 3: optimized CV preview
+  // ---------------------------------------------------------------------
+
+  const viewButtons = document.querySelectorAll("[data-cv-view]");
+  for (let i = 0; i < viewButtons.length; i++) {
+    viewButtons[i].addEventListener("click", function () {
+      const view = this.getAttribute("data-cv-view");
+      for (let j = 0; j < viewButtons.length; j++) {
+        viewButtons[j].classList.remove("active");
+      }
+      this.classList.add("active");
+      document.getElementById("cv-preview-original").style.display = view === "original" ? "block" : "none";
+      document.getElementById("cv-preview-optimized").style.display = view === "optimized" ? "block" : "none";
+    });
+  }
+
+  function renderOptimizeScreen() {
+    document.getElementById("cv-preview-original").textContent = state.cvText;
+    document.getElementById("cv-preview-optimized").innerHTML = renderCvAsHtml(state.tailoredCv);
+
+    const pdfLink = document.getElementById("pdf-link");
+    if (state.resumeUrl) {
+      pdfLink.href = state.resumeUrl;
+      pdfLink.classList.remove("hidden");
+      setStatus("status-optimize", "", false);
+    } else {
+      pdfLink.classList.add("hidden");
+      setStatus("status-optimize", "The PDF was not created, so the CV can't be attached yet. Check the APITemplate step in n8n.", true);
+    }
+  }
+
+  function renderCvAsHtml(tailoredCv) {
+    let html = "";
+
+    const summary = tailoredCv.professional_summary || tailoredCv.summary || "";
+    if (summary) {
+      html += "<p>" + escapeHtml(summary) + "</p>";
+    }
+
+    const skills = asList(tailoredCv.skills);
+    if (skills.length > 0) {
+      html += "<div class=\"cv-h\">Skills</div>";
+      html += "<div>" + escapeHtml(skills.join(", ")) + "</div>";
+    }
+
+    const experience = asList(tailoredCv.experience);
+    if (experience.length > 0) {
+      html += "<div class=\"cv-h\">Experience</div>";
+      for (let i = 0; i < experience.length; i++) {
+        const job = experience[i];
+        if (typeof job === "string") {
+          html += "<div>" + escapeHtml(job) + "</div>";
+          continue;
+        }
+        html += "<div style=\"margin-bottom:10px;\"><strong>" + escapeHtml(job.job_title || job.title || "") + "</strong>";
+        if (job.company) { html += " — " + escapeHtml(job.company); }
+        const dates = job.years || job.dates || job.duration || "";
+        if (dates) { html += " <span style=\"color:var(--ink-soft)\">(" + escapeHtml(dates) + ")</span>"; }
+
+        // The AI may call the bullet list any of these names.
+        const bullets = asList(job.responsibilities || job.bullets || job.achievements || job.description);
+        if (bullets.length > 0) {
+          html += "<ul>";
+          for (let j = 0; j < bullets.length; j++) {
+            html += "<li>" + escapeHtml(bullets[j]) + "</li>";
+          }
+          html += "</ul>";
+        }
+        html += "</div>";
+      }
+    }
+
+    const education = asList(tailoredCv.education);
+    if (education.length > 0) {
+      html += "<div class=\"cv-h\">Education</div>";
+      for (let i = 0; i < education.length; i++) {
+        const school = education[i];
+        if (typeof school === "string") {
+          html += "<div>" + escapeHtml(school) + "</div>";
+          continue;
+        }
+        const parts = [school.degree, school.institution || school.school, school.year].filter(Boolean);
+        html += "<div>" + escapeHtml(parts.join(" — ")) + "</div>";
+      }
+    }
+
+    return html;
+  }
+
+  function escapeHtml(text) {
+    const div = document.createElement("div");
+    div.textContent = text === null || text === undefined ? "" : String(text);
+    return div.innerHTML;
+  }
+
+  document.getElementById("btn-approve").addEventListener("click", approveCv);
+
+  // "Approve CV" asks n8n to draft the application email.
+  // Nothing is sent yet — the email waits as a draft (status pending_approval).
+  async function approveCv() {
+    if (!state.resumeUrl) {
+      setStatus("status-optimize", "The PDF isn't ready, so the CV can't be attached. Tailor the CV again.", true);
+      return;
+    }
+
+    const approveButton = document.getElementById("btn-approve");
+    setButtonLoading(approveButton, true, "Drafting the email...", "Approve CV");
+    setStatus("status-optimize", "", false);
+
+    try {
+      const result = await postToN8n("/application", {
+        tailored_cv_id: state.tailoredCvId,
+        recipient_email: state.hrEmail,
+        job_description: state.jobDescription
+      });
+      const data = result.data;
+
+      if (!result.ok || !data.application_id) {
+        throw new Error(data.message || "the application service returned an error (status " + result.status + ").");
+      }
+
+      state.applicationId = data.application_id;
+      state.resumeUrl = data.resume_url || state.resumeUrl;
+
+      document.getElementById("apply-to").textContent = data.recipient_email || state.hrEmail;
+      document.getElementById("apply-subject").value = data.subject || "";
+      document.getElementById("apply-body").value = data.body || "";
+      document.getElementById("attach-link").href = state.resumeUrl;
+
+      setEditing(false);
+      showScreen("screen-apply");
+    } catch (error) {
+      setStatus("status-optimize", "Could not draft the email: " + error.message, true);
+    } finally {
+      setButtonLoading(approveButton, false, "Drafting the email...", "Approve CV");
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // Screen 4: review the email, then approve and send
+  // ---------------------------------------------------------------------
+
+  function setEditing(isEditing) {
+    document.getElementById("apply-subject").readOnly = !isEditing;
+    document.getElementById("apply-body").readOnly = !isEditing;
+    document.getElementById("btn-edit").textContent = isEditing ? "Done editing" : "Edit";
+  }
+
+  document.getElementById("btn-edit").addEventListener("click", function () {
+    const isEditing = document.getElementById("apply-body").readOnly;
+    setEditing(isEditing);
+  });
+
+  document.getElementById("btn-send").addEventListener("click", sendApplication);
+
+  async function sendApplication() {
+    if (!state.applicationId) {
+      setStatus("status-apply", "The draft isn't ready yet — approve the CV first.", true);
+      return;
+    }
+
+    const subject = document.getElementById("apply-subject").value.trim();
+    const body = document.getElementById("apply-body").value.trim();
+    if (subject.length === 0 || body.length === 0) {
+      setStatus("status-apply", "The subject and message can't be empty.", true);
+      return;
+    }
+
+    const confirmed = window.confirm("Send this application to " + state.hrEmail + " with your CV attached?");
+    if (!confirmed) {
+      return;
+    }
+
+    const sendButton = document.getElementById("btn-send");
+    const editButton = document.getElementById("btn-edit");
+    setButtonLoading(sendButton, true, "Sending...", "Approve & send");
+    editButton.disabled = true;
+    setStatus("status-apply", "", false);
+
+    try {
+      // n8n downloads the PDF, attaches it, sends the email,
+      // then marks the application as "sent".
+      const result = await postToN8n("/application-approve", {
+        application_id: state.applicationId,
+        subject: subject,
+        body: body
+      });
+      const data = result.data;
+
+      if (!result.ok || data.success !== true) {
+        throw new Error(data.message || "the send service returned an error (status " + result.status + ").");
+      }
+
+      state.sent = true;
+      setEditing(false);
+      sendButton.classList.add("hidden");
+      editButton.classList.add("hidden");
+      document.getElementById("sent-note").classList.remove("hidden");
+      updateStepper("screen-apply");
+    } catch (error) {
+      setStatus("status-apply", "Could not send the application: " + error.message, true);
+      editButton.disabled = false;
+    } finally {
+      setButtonLoading(sendButton, false, "Sending...", "Approve & send");
+    }
+  }
+
+  showScreen("screen-upload");
+
+</script>
+</body>
+</html>

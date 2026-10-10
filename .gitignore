@@ -1,0 +1,16 @@
+# Secrets / local config
+.env
+.env.*
+*.key
+credentials*.json
+
+# Personal CVs used for testing
+*.pdf
+*.docx
+
+# OS / editor
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
